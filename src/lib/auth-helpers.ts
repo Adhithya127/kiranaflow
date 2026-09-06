@@ -22,6 +22,8 @@ export async function getUserIdFromRequest(request: NextRequest): Promise<string
     );
 
     const tokenValue =
+      cookies["__Secure-authjs.session-token"] ||
+      cookies["authjs.session-token"] ||
       cookies["__Secure-next-auth.session-token"] ||
       cookies["next-auth.session-token"];
 
