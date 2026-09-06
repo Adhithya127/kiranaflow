@@ -1,18 +1,19 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
-  const session = await auth();
-  const userId = (session?.user as { id?: string })?.id;
+const SECRET = process.env.NEXTAUTH_SECRET;
+
+export async function GET(request: Request) {
+  const token = await getToken({ req: request as never, secret: SECRET });
+  const userId = token?.sub || null;
+
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const shop = await prisma.shop.findUnique({
-      where: { userId },
-    });
+    const shop = await prisma.shop.findUnique({ where: { userId } });
 
     if (!shop) {
       return NextResponse.json([]);
@@ -34,16 +35,15 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const session = await auth();
-  const userId = (session?.user as { id?: string })?.id;
+  const token = await getToken({ req: request as never, secret: SECRET });
+  const userId = token?.sub || null;
+
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const shop = await prisma.shop.findUnique({
-      where: { userId },
-    });
+    const shop = await prisma.shop.findUnique({ where: { userId } });
 
     if (!shop) {
       return NextResponse.json(

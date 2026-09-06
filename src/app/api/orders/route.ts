@@ -1,30 +1,27 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
-  const session = await auth();
-  const userId = (session?.user as { id?: string })?.id;
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+const SECRET = process.env.NEXTAUTH_SECRET;
+
+async function getUserIdFromRequest(request: Request): Promise<string | null> {
+  const token = await getToken({ req: request as never, secret: SECRET });
+  return token?.sub || null;
+}
+
+export async function GET(request: Request) {
+  const userId = await getUserIdFromRequest(request);
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const shop = await prisma.shop.findUnique({
-      where: { userId },
-    });
-
-    if (!shop) {
-      return NextResponse.json([]);
-    }
+    const shop = await prisma.shop.findUnique({ where: { userId } });
+    if (!shop) return NextResponse.json([]);
 
     const orders = await prisma.order.findMany({
       where: { shopId: shop.id },
       include: {
         customer: true,
-        items: {
-          include: { product: true },
-        },
+        items: { include: { product: true } },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -32,9 +29,6 @@ export async function GET() {
     return NextResponse.json(orders);
   } catch (error) {
     console.error("Orders GET error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch orders" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to fetch orders" }, { status: 500 });
   }
 }

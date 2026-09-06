@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
+
+const SECRET = process.env.NEXTAUTH_SECRET;
+
+async function getUserIdFromRequest(request: Request): Promise<string | null> {
+  const token = await getToken({ req: request as never, secret: SECRET });
+  return token?.sub || null;
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -11,70 +19,45 @@ export async function GET(request: Request) {
     let shopId: string | undefined;
 
     if (shopSlug) {
-      const shop = await prisma.shop.findUnique({
-        where: { slug: shopSlug },
-      });
-      if (!shop) {
-        return NextResponse.json({ error: "Shop not found" }, { status: 404 });
-      }
+      const shop = await prisma.shop.findUnique({ where: { slug: shopSlug } });
+      if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
       shopId = shop.id;
     }
 
     const where: Record<string, unknown> = {};
     if (shopId) where.shopId = shopId;
     if (categoryId) where.categoryId = categoryId;
-    if (search) {
-      where.name = { contains: search, mode: "insensitive" };
-    }
+    if (search) where.name = { contains: search, mode: "insensitive" };
     where.isAvailable = true;
 
     const products = await prisma.product.findMany({
       where,
-      include: {
-        category: true,
-      },
+      include: { category: true },
       orderBy: { createdAt: "desc" },
     });
 
     return NextResponse.json(products);
   } catch (error) {
     console.error("Products GET error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch products" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to fetch products" }, { status: 500 });
   }
 }
 
-import { auth } from "@/lib/auth";
-
 export async function POST(request: Request) {
-  const session = await auth();
-  const userId = (session?.user as { id?: string })?.id;
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const userId = await getUserIdFromRequest(request);
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const shop = await prisma.shop.findUnique({
-      where: { userId },
-    });
-
+    const shop = await prisma.shop.findUnique({ where: { userId } });
     if (!shop) {
-      return NextResponse.json(
-        { error: "Please create a shop first" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Please create a shop first" }, { status: 400 });
     }
 
     const body = await request.json();
     const { name, description, price, mrp, unit, stock, image, categoryId, sku, barcode } = body;
 
     if (!name || price === undefined) {
-      return NextResponse.json(
-        { error: "Name and price are required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Name and price are required" }, { status: 400 });
     }
 
     const product = await prisma.product.create({
@@ -96,9 +79,6 @@ export async function POST(request: Request) {
     return NextResponse.json(product);
   } catch (error) {
     console.error("Products POST error:", error);
-    return NextResponse.json(
-      { error: "Failed to create product" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to create product" }, { status: 500 });
   }
 }

@@ -1,31 +1,27 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
+
+const SECRET = process.env.NEXTAUTH_SECRET;
+
+async function getUserIdFromRequest(request: Request): Promise<string | null> {
+  const token = await getToken({ req: request as never, secret: SECRET });
+  return token?.sub || null;
+}
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const session = await auth();
-  const userId = (session?.user as { id?: string })?.id;
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const userId = await getUserIdFromRequest(request);
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const shop = await prisma.shop.findUnique({
-      where: { userId },
-    });
+    const shop = await prisma.shop.findUnique({ where: { userId } });
+    if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
 
-    if (!shop) {
-      return NextResponse.json({ error: "Shop not found" }, { status: 404 });
-    }
-
-    const existingOrder = await prisma.order.findUnique({
-      where: { id },
-    });
-
+    const existingOrder = await prisma.order.findUnique({ where: { id } });
     if (!existingOrder || existingOrder.shopId !== shop.id) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
@@ -41,18 +37,12 @@ export async function PUT(
     const order = await prisma.order.update({
       where: { id },
       data: { status },
-      include: {
-        customer: true,
-        items: { include: { product: true } },
-      },
+      include: { customer: true, items: { include: { product: true } } },
     });
 
     return NextResponse.json(order);
   } catch (error) {
     console.error("Order status PUT error:", error);
-    return NextResponse.json(
-      { error: "Failed to update order status" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to update order status" }, { status: 500 });
   }
 }
