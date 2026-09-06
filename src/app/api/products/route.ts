@@ -1,6 +1,52 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const shopSlug = searchParams.get("shop");
+  const search = searchParams.get("search");
+  const categoryId = searchParams.get("category");
+
+  try {
+    let shopId: string | undefined;
+
+    if (shopSlug) {
+      const shop = await prisma.shop.findUnique({
+        where: { slug: shopSlug },
+      });
+      if (!shop) {
+        return NextResponse.json({ error: "Shop not found" }, { status: 404 });
+      }
+      shopId = shop.id;
+    }
+
+    const where: Record<string, unknown> = {};
+    if (shopId) where.shopId = shopId;
+    if (categoryId) where.categoryId = categoryId;
+    if (search) {
+      where.name = { contains: search, mode: "insensitive" };
+    }
+    where.isAvailable = true;
+
+    const products = await prisma.product.findMany({
+      where,
+      include: {
+        category: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return NextResponse.json(products);
+  } catch (error) {
+    console.error("Products GET error:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch products" },
+      { status: 500 }
+    );
+  }
+}
+
+import { auth } from "@/lib/auth";
 
 export async function POST(request: Request) {
   const session = await auth();
