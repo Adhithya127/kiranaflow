@@ -1,19 +1,10 @@
-import { NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { NextRequest, NextResponse } from "next/server";
+import { getUserIdFromRequest } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 
-const SECRET = process.env.NEXTAUTH_SECRET;
-
-async function getUserIdFromRequest(request: Request): Promise<string | null> {
-  const token = await getToken({ req: request as never, secret: SECRET });
-  return token?.sub || null;
-}
-
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const userId = await getUserIdFromRequest(request);
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
     const shop = await prisma.shop.findUnique({ where: { userId } });
@@ -25,24 +16,17 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const userId = await getUserIdFromRequest(request);
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
     const existingShop = await prisma.shop.findUnique({ where: { userId } });
-    if (existingShop) {
-      return NextResponse.json({ error: "You already have a shop" }, { status: 400 });
-    }
+    if (existingShop) return NextResponse.json({ error: "You already have a shop" }, { status: 400 });
 
     const body = await request.json();
     const { name, description, category, phone, address, city, state, pincode } = body;
-
-    if (!name) {
-      return NextResponse.json({ error: "Shop name is required" }, { status: 400 });
-    }
+    if (!name) return NextResponse.json({ error: "Shop name is required" }, { status: 400 });
 
     let slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 50);
     let isUnique = false;
@@ -55,7 +39,6 @@ export async function POST(request: Request) {
     const shop = await prisma.shop.create({
       data: { name, slug, description, category, phone, address, city, state, pincode, userId },
     });
-
     return NextResponse.json(shop);
   } catch (error) {
     console.error("Shop POST error:", error);
@@ -63,11 +46,9 @@ export async function POST(request: Request) {
   }
 }
 
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
   const userId = await getUserIdFromRequest(request);
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
     const shop = await prisma.shop.findUnique({ where: { userId } });
@@ -90,7 +71,6 @@ export async function PUT(request: Request) {
         ...(isOpen !== undefined && { isOpen }),
       },
     });
-
     return NextResponse.json(updatedShop);
   } catch (error) {
     console.error("Shop PUT error:", error);
