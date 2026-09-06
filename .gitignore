@@ -54,3 +54,6 @@ next-env.d.ts
 
 # seeds
 /scripts/node_modules
+
+.vercel
+.env*
