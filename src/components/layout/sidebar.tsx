@@ -7,6 +7,7 @@ import {
   Store,
   Package,
   ShoppingCart,
+  BarChart3,
   Settings,
   ChevronLeft,
 } from "lucide-react";
@@ -17,6 +18,7 @@ const navigation = [
   { name: "My Shop", href: "/dashboard/shop", icon: Store },
   { name: "Products", href: "/dashboard/products", icon: Package },
   { name: "Orders", href: "/dashboard/orders", icon: ShoppingCart },
+  { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
