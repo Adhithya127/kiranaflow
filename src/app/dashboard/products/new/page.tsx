@@ -172,9 +172,9 @@ export default function NewProductPage() {
             setCategoryId(matchedCategory.id);
           }
         }
-      } catch {
+      } catch (err) {
         setRecognitionStatus("error");
-        setRecognitionMessage("Failed to analyze image");
+        setRecognitionMessage(err instanceof Error ? err.message : "Failed to analyze image");
       } finally {
         setIsRecognizing(false);
       }

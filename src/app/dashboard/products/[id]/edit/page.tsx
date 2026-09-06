@@ -157,9 +157,9 @@ export default function EditProductPage() {
           const matched = categories.find((c) => c.name.toLowerCase() === recognition.category.toLowerCase());
           if (matched) setCategoryId(matched.id);
         }
-      } catch {
+      } catch (err) {
         setRecognitionStatus("error");
-        setRecognitionMessage("Failed to analyze image");
+        setRecognitionMessage(err instanceof Error ? err.message : "Failed to analyze image");
       } finally {
         setIsRecognizing(false);
       }

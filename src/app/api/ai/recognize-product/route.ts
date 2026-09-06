@@ -20,8 +20,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result);
   } catch (error) {
     console.error("Product recognition error:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
+    if (message.includes("429") || message.includes("insufficient_quota") || message.includes("no credits")) {
+      return NextResponse.json(
+        { error: "AI service is out of credits. Please add credits at platform.openai.com or fill details manually." },
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
-      { error: "Failed to recognize product", details: error instanceof Error ? error.message : "Unknown error" },
+      { error: "Failed to recognize product. Please fill details manually." },
       { status: 500 }
     );
   }
