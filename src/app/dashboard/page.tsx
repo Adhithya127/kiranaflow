@@ -145,7 +145,7 @@ export default function DashboardPage() {
             </Link>
             {stats.shopName && (
               <Link
-                href={`/shop/${stats.shopName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+                href={`/shops/${stats.shopName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
                 className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
                 target="_blank"
               >
