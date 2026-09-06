@@ -1,38 +1,45 @@
 import { NextRequest } from "next/server";
-import { jwtVerify } from "jose";
+import { decode } from "@auth/core/jwt";
 
-const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET);
-
-interface JwtPayload {
-  sub?: string;
-  userId?: string;
-  role?: string;
-}
+const SECRET = process.env.NEXTAUTH_SECRET!;
 
 export async function getUserIdFromRequest(request: NextRequest): Promise<string | null> {
   try {
     const cookieHeader = request.headers.get("cookie");
     if (!cookieHeader) return null;
 
-    const cookies = Object.fromEntries(
-      cookieHeader.split(";").map((c) => {
-        const [key, ...val] = c.trim().split("=");
-        return [key, val.join("=")];
-      })
-    );
+    const allCookies: Record<string, string> = {};
+    for (const c of cookieHeader.split(";")) {
+      const eqIndex = c.indexOf("=");
+      if (eqIndex === -1) continue;
+      const key = c.substring(0, eqIndex).trim();
+      const val = c.substring(eqIndex + 1).trim();
+      allCookies[key] = val;
+    }
 
-    const tokenValue =
-      cookies["__Secure-authjs.session-token"] ||
-      cookies["authjs.session-token"] ||
-      cookies["__Secure-next-auth.session-token"] ||
-      cookies["next-auth.session-token"];
+    const cookieNames = [
+      "__Secure-authjs.session-token",
+      "authjs.session-token",
+    ];
 
-    if (!tokenValue) return null;
+    for (const cookieName of cookieNames) {
+      const tokenValue = allCookies[cookieName];
+      if (!tokenValue) continue;
 
-    const { payload } = await jwtVerify<JwtPayload>(tokenValue, secret);
-    return payload.userId || payload.sub || null;
+      const token = await decode({
+        token: tokenValue,
+        secret: SECRET,
+        salt: cookieName,
+      });
+
+      if (token) {
+        return (token.userId as string) || (token.sub as string) || null;
+      }
+    }
+
+    return null;
   } catch (error) {
-    console.error("JWT verify error:", error);
+    console.error("JWT decode error:", error);
     return null;
   }
 }
